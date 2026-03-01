@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dead Forest - Zombie Survival</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Exo+2:wght@400;600;700&display=swap');
+  
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a0a; overflow:hidden; font-family:'Exo 2',sans-serif; touch-action:none; }
+  
+  #gameCanvas { display:block; }
+  
+  /* HUD */
+  #hud {
+    position:fixed; top:0; left:0; right:0;
+    padding:10px 14px;
+    display:flex; align-items:center; gap:12px;
+    background:linear-gradient(180deg,rgba(0,0,0,.8) 0%,transparent 100%);
+    pointer-events:none; z-index:10;
+  }
+  .res {
+    display:flex; align-items:center; gap:5px;
+    background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.12);
+    border-radius:20px; padding:4px 10px; font-size:13px; color:#e8e8e8;
+  }
+  .res span { font-size:16px; }
+  #waveInfo {
+    margin-left:auto;
+    background:rgba(180,20,20,.7); border:1px solid #ff4444;
+    border-radius:20px; padding:4px 12px; font-size:13px; color:#fff;
+  }
+  #healthBar {
+    position:fixed; bottom:160px; left:50%; transform:translateX(-50%);
+    width:200px; z-index:10; pointer-events:none;
+  }
+  #healthBar .label { text-align:center; font-size:11px; color:#aaa; margin-bottom:3px; }
+  #healthBar .bar { height:10px; background:#333; border-radius:5px; overflow:hidden; border:1px solid #555; }
+  #healthBar .fill { height:100%; background:linear-gradient(90deg,#e74c3c,#ff6b6b); border-radius:5px; transition:width .3s; }
+
+  /* Build panel */
+  #buildPanel {
+    position:fixed; bottom:160px; right:10px;
+    display:flex; flex-direction:column; gap:6px; z-index:10;
+  }
+  .buildBtn {
+    background:rgba(0,0,0,.75); border:1px solid rgba(255,255,255,.2);
+    border-radius:10px; padding:8px 12px; color:#fff; font-size:11px;
+    font-family:'Exo 2',sans-serif; cursor:pointer; text-align:center;
+    transition:all .15s; min-width:80px;
+  }
+  .buildBtn:active { background:rgba(255,255,255,.15); transform:scale(.95); }
+  .buildBtn .icon { font-size:18px; display:block; }
+  .buildBtn .cost { color:#f0c040; font-size:10px; }
+  .buildBtn.selected { border-color:#4caf50; background:rgba(76,175,80,.25); }
+
+  /* Action buttons */
+  #actionPanel {
+    position:fixed; bottom:160px; left:10px;
+    display:flex; flex-direction:column; gap:6px; z-index:10;
+  }
+  .actionBtn {
+    background:rgba(180,30,30,.8); border:1px solid #ff5555;
+    border-radius:10px; padding:8px 12px; color:#fff; font-size:11px;
+    font-family:'Exo 2',sans-serif; cursor:pointer; text-align:center; min-width:80px;
+  }
+  .actionBtn:active { transform:scale(.95); }
+  .actionBtn .icon { font-size:18px; display:block; }
+
+  /* Joystick */
+  #joystickZone {
+    position:fixed; bottom:10px; left:10px;
+    width:140px; height:140px; z-index:10;
+  }
+  #joystickBase {
+    width:120px; height:120px; border-radius:50%;
+    background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.2);
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  }
+  #joystickKnob {
+    width:50px; height:50px; border-radius:50%;
+    background:rgba(255,255,255,.35); border:2px solid rgba(255,255,255,.6);
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    transition:none;
+  }
+
+  /* Attack button */
+  #attackBtn {
+    position:fixed; bottom:30px; right:20px;
+    width:80px; height:80px; border-radius:50%;
+    background:radial-gradient(circle,#c0392b,#7b0000);
+    border:3px solid #ff4444; color:#fff; font-size:28px;
+    display:flex; align-items:center; justify-content:center;
+    z-index:10; cursor:pointer; box-shadow:0 0 20px rgba(255,0,0,.4);
+  }
+  #attackBtn:active { transform:scale(.9); }
+
+  /* Soldier count */
+  #soldierBtn {
+    position:fixed; bottom:30px; right:120px;
+    width:70px; height:70px; border-radius:50%;
+    background:radial-gradient(circle,#1a6b2a,#0d3d17);
+    border:3px solid #4caf50; color:#fff; font-size:11px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:10; cursor:pointer;
+  }
+  #soldierBtn .icon { font-size:22px; }
+
+  /* Start screen */
+  #startScreen {
+    position:fixed; inset:0; background:rgba(0,0,0,.92);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    z-index:100; gap:16px;
+  }
+  #startScreen h1 {
+    font-family:'Creepster',cursive; font-size:52px; color:#e74c3c;
+    text-shadow:0 0 30px rgba(231,76,60,.8); letter-spacing:3px;
+  }
+  #startScreen p { color:#aaa; font-size:14px; max-width:300px; text-align:center; line-height:1.6; }
+  #startBtn {
+    background:linear-gradient(135deg,#c0392b,#7b0000);
+    border:2px solid #ff4444; border-radius:30px;
+    padding:14px 40px; color:#fff; font-size:18px; font-family:'Exo 2',sans-serif;
+    font-weight:700; cursor:pointer; letter-spacing:1px;
+    box-shadow:0 0 30px rgba(255,68,68,.5);
+  }
+
+  /* Minimap */
+  #minimap {
+    position:fixed; top:60px; right:10px;
+    width:100px; height:100px; z-index:10;
+    border:1px solid rgba(255,255,255,.2); border-radius:4px;
+    overflow:hidden;
+  }
+
+  /* Message */
+  #message {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:rgba(0,0,0,.85); border:1px solid #ff4444;
+    border-radius:12px; padding:12px 24px; color:#fff; font-size:14px;
+    z-index:50; pointer-events:none; opacity:0; transition:opacity .3s;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<canvas id="minimap"></canvas>
+
+<div id="hud">
+  <div class="res"><span>🪵</span> <b id="woodCount">0</b></div>
+  <div class="res"><span>🪨</span> <b id="stoneCount">0</b></div>
+  <div class="res"><span>🍗</span> <b id="foodCount">0</b></div>
+  <div class="res"><span>⚔️</span> <b id="soldierCount">0</b></div>
+  <div id="waveInfo">🌊 Dalga: <b id="waveNum">1</b></div>
+</div>
+
+<div id="healthBar">
+  <div class="label">❤️ Can</div>
+  <div class="bar"><div class="fill" id="healthFill" style="width:100%"></div></div>
+</div>
+
+<div id="buildPanel">
+  <div class="buildBtn" id="btnWall" onclick="selectBuild('wall')">
+    <span class="icon">🧱</span>Duvar<br><span class="cost">🪵5</span>
+  </div>
+  <div class="buildBtn" id="btnTower" onclick="selectBuild('tower')">
+    <span class="icon">🗼</span>Kule<br><span class="cost">🪵10 🪨5</span>
+  </div>
+  <div class="buildBtn" id="btnBarracks" onclick="selectBuild('barracks')">
+    <span class="icon">🏕️</span>Kışla<br><span class="cost">🪵15 🪨10</span>
+  </div>
+</div>
+
+<div id="actionPanel">
+  <div class="actionBtn" onclick="recruitSoldier()">
+    <span class="icon">⚔️</span>Asker<br><span class="cost" style="color:#f0c040">🍗5</span>
+  </div>
+  <div class="actionBtn" onclick="attackZombieCity()">
+    <span class="icon">🗡️</span>Saldır
+  </div>
+</div>
+
+<div id="joystickZone">
+  <div id="joystickBase"></div>
+  <div id="joystickKnob"></div>
+</div>
+
+<div id="attackBtn" ontouchstart="startAttack()" ontouchend="stopAttack()" onmousedown="startAttack()" onmouseup="stopAttack()">⚔</div>
+
+<div id="startScreen">
+  <h1>DEAD FOREST</h1>
+  <p>Ormanda hayatta kal! Kaynak topla, üs kur, asker yetiştir ve zombi şehirlerine saldır!</p>
+  <button id="startBtn" onclick="startGame()">OYUNA BAŞLA</button>
+</div>
+
+<div id="message"></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const miniCanvas = document.getElementById('minimap');
+const miniCtx = miniCanvas.getContext('2d');
+miniCanvas.width = 100; miniCanvas.height = 100;
+
+let W = canvas.width = window.innerWidth;
+let H = canvas.height = window.innerHeight;
+
+// Game state
+const WORLD = 3000;
+const TILE = 40;
+let gameRunning = false;
+
+const state = {
+  wood: 20, stone: 10, food: 10,
+  wave: 1, waveTimer: 0, nextWaveCooldown: 1800,
+  selectedBuild: null,
+  attackMode: false,
+};
+
+const player = {
+  x: WORLD/2, y: WORLD/2,
+  w: 28, h: 28,
+  speed: 3,
+  hp: 100, maxHp: 100,
+  soldiers: [],
+  maxSoldiers: 0,
+};
+
+// Camera
+const cam = { x:0, y:0 };
+
+// Input
+const keys = {};
+const joystick = { active:false, dx:0, dy:0, startX:0, startY:0, touchId:null };
+
+// World objects
+let trees = [], stones = [], foods = [], buildings = [], zombies = [], bullets = [], zombieCities = [];
+let particles = [];
+
+function initWorld() {
+  trees = []; stones = []; foods = [];
+
+  // Generate trees
+  for(let i=0;i<300;i++){
+    let x,y;
+    do { x=Math.random()*WORLD; y=Math.random()*WORLD; }
+    while(dist(x,y,WORLD/2,WORLD/2)<150);
+    trees.push({x,y,r:16,hp:3,maxHp:3,type:'tree'});
+  }
+  // Stones
+  for(let i=0;i<150;i++){
+    let x,y;
+    do { x=Math.random()*WORLD; y=Math.random()*WORLD; }
+    while(dist(x,y,WORLD/2,WORLD/2)<150);
+    stones.push({x,y,r:14,hp:3,maxHp:3,type:'stone'});
+  }
+  // Food (bushes)
+  for(let i=0;i<100;i++){
+    let x = Math.random()*WORLD, y = Math.random()*WORLD;
+    foods.push({x,y,r:10,hp:1,type:'food'});
+  }
+  // Zombie cities at map edges
+  zombieCities = [
+    {x:200,y:200,r:80,hp:200,maxHp:200,color:'#8b0000'},
+    {x:WORLD-200,y:200,r:80,hp:200,maxHp:200,color:'#6b008b'},
+    {x:200,y:WORLD-200,r:80,hp:200,maxHp:200,color:'#005b8b'},
+    {x:WORLD-200,y:WORLD-200,r:80,hp:200,maxHp:200,color:'#8b4500'},
+  ];
+}
+
+function dist(x1,y1,x2,y2){
+  return Math.sqrt((x2-x1)**2+(y2-y1)**2);
+}
+
+// Joystick controls
+const joystickZone = document.getElementById('joystickZone');
+const joystickKnob = document.getElementById('joystickKnob');
+const BASE_R = 40;
+
+function getJoystickPos(touch){
+  const rect = joystickZone.getBoundingClientRect();
+  return { x: touch.clientX - rect.left - 70, y: touch.clientY - rect.top - 70 };
+}
+
+joystickZone.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  joystick.active = true;
+  joystick.touchId = t.identifier;
+  const p = getJoystickPos(t);
+  joystick.startX = p.x; joystick.startY = p.y;
+}, {passive:false});
+
+joystickZone.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  for(let t of e.changedTouches){
+    if(t.identifier === joystick.touchId){
+      const p = getJoystickPos(t);
+      let dx = p.x - joystick.startX;
+      let dy = p.y - joystick.startY;
+      const d = Math.sqrt(dx*dx+dy*dy);
+      if(d > BASE_R){ dx = dx/d*BASE_R; dy = dy/d*BASE_R; }
+      joystick.dx = dx/BASE_R;
+      joystick.dy = dy/BASE_R;
+      joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    }
+  }
+}, {passive:false});
+
+joystickZone.addEventListener('touchend', e=>{
+  joystick.active = false; joystick.dx = 0; joystick.dy = 0;
+  joystickKnob.style.transform = 'translate(-50%,-50%)';
+});
+
+// Keyboard
+document.addEventListener('keydown', e=>keys[e.key]=true);
+document.addEventListener('keyup', e=>keys[e.key]=false);
+
+// Build selection
+function selectBuild(type){
+  if(state.selectedBuild === type){ state.selectedBuild = null; }
+  else { state.selectedBuild = type; showMsg('Yapı seçildi: '+type+' - Yerleştirmek için haritaya dokun'); }
+  document.querySelectorAll('.buildBtn').forEach(b=>b.classList.remove('selected'));
+  if(state.selectedBuild){
+    document.getElementById('btn'+type.charAt(0).toUpperCase()+type.slice(1)).classList.add('selected');
+  }
+}
+
+// Canvas tap to build/attack
+canvas.addEventListener('click', e=>{
+  if(!gameRunning) return;
+  const wx = e.clientX - W/2 + cam.x;
+  const wy = e.clientY - H/2 + cam.y;
+  if(state.selectedBuild){ tryBuild(wx, wy); return; }
+  // harvest resources
+  harvestAt(wx, wy);
+});
+
+canvas.addEventListener('touchstart', e=>{
+  if(!gameRunning) return;
+  e.preventDefault();
+  // Only if not joystick
+  for(let t of e.changedTouches){
+    const rect = joystickZone.getBoundingClientRect();
+    if(t.clientX > rect.left && t.clientX < rect.right && t.clientY > rect.top && t.clientY < rect.bottom) continue;
+    if(t.clientX > W - 180) continue; // right side buttons
+    const wx = t.clientX - W/2 + cam.x;
+    const wy = t.clientY - H/2 + cam.y;
+    if(state.selectedBuild){ tryBuild(wx, wy); return; }
+    harvestAt(wx, wy);
+  }
+}, {passive:false});
+
+function harvestAt(wx, wy){
+  for(let tr of trees){
+    if(dist(wx,wy,tr.x,tr.y)<40){
+      tr.hp--;
+      spawnParticles(tr.x,tr.y,'#4a7c2f',3);
+      if(tr.hp<=0){
+        state.wood += 5;
+        trees = trees.filter(t=>t!==tr);
+        spawnParticles(tr.x,tr.y,'#8B4513',6);
+        showMsg('+5 🪵 Odun');
+      }
+      updateHUD(); return;
+    }
+  }
+  for(let st of stones){
+    if(dist(wx,wy,st.x,st.y)<40){
+      st.hp--;
+      spawnParticles(st.x,st.y,'#888',3);
+      if(st.hp<=0){
+        state.stone += 3;
+        stones = stones.filter(s=>s!==st);
+        spawnParticles(st.x,st.y,'#aaa',6);
+        showMsg('+3 🪨 Taş');
+      }
+      updateHUD(); return;
+    }
+  }
+  for(let fd of foods){
+    if(dist(wx,wy,fd.x,fd.y)<35){
+      state.food += 3;
+      foods = foods.filter(f=>f!==fd);
+      spawnParticles(fd.x,fd.y,'#2ecc71',4);
+      showMsg('+3 🍗 Yiyecek');
+      updateHUD(); return;
+    }
+  }
+}
+
+function tryBuild(wx, wy){
+  const costs = {wall:{wood:5,stone:0},tower:{wood:10,stone:5},barracks:{wood:15,stone:10}};
+  const c = costs[state.selectedBuild];
+  if(state.wood < c.wood || state.stone < c.stone){
+    showMsg('Yeterli kaynak yok!'); return;
+  }
+  state.wood -= c.wood; state.stone -= c.stone;
+  buildings.push({x:wx,y:wy,type:state.selectedBuild,hp:state.selectedBuild==='wall'?50:100,maxHp:state.selectedBuild==='wall'?50:100,timer:0});
+  if(state.selectedBuild==='barracks') player.maxSoldiers += 5;
+  spawnParticles(wx,wy,'#ffd700',5);
+  showMsg('Yapı inşa edildi!');
+  state.selectedBuild = null;
+  document.querySelectorAll('.buildBtn').forEach(b=>b.classList.remove('selected'));
+  updateHUD();
+}
+
+function recruitSoldier(){
+  if(state.food < 5){ showMsg('Yeterli yiyecek yok!'); return; }
+  if(player.soldiers.length >= player.maxSoldiers){ showMsg('Önce kışla kur!'); return; }
+  state.food -= 5;
+  const angle = Math.random()*Math.PI*2;
+  player.soldiers.push({
+    x: player.x + Math.cos(angle)*40,
+    y: player.y + Math.sin(angle)*40,
+    hp:50, maxHp:50, speed:2, target:null, attackTimer:0
+  });
+  showMsg('+1 Asker!');
+  updateHUD();
+}
+
+function attackZombieCity(){
+  if(player.soldiers.length===0){ showMsg('Asker yok! Önce asker üret.'); return; }
+  if(zombieCities.length===0){ showMsg('Tüm zombi şehirleri yok edildi! 🎉'); return; }
+  // Send soldiers to nearest zombie city
+  const city = zombieCities.reduce((a,b)=>dist(player.x,player.y,a.x,a.y)<dist(player.x,player.y,b.x,b.y)?a:b);
+  player.soldiers.forEach(s=>s.targetCity = city);
+  showMsg('Askerler saldırıya geçiyor!');
+}
+
+function startAttack(){ state.attackMode = true; }
+function stopAttack(){ state.attackMode = false; }
+
+function spawnParticles(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const angle = Math.random()*Math.PI*2;
+    const speed = 1+Math.random()*3;
+    particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:30,color});
+  }
+}
+
+function spawnWave(){
+  const count = 5 + state.wave * 3;
+  for(let i=0;i<count;i++){
+    const angle = Math.random()*Math.PI*2;
+    const r = 600 + Math.random()*400;
+    zombies.push({
+      x: player.x + Math.cos(angle)*r,
+      y: player.y + Math.sin(angle)*r,
+      hp: 20 + state.wave*5,
+      maxHp: 20 + state.wave*5,
+      speed: 0.8 + state.wave*0.1,
+      attackTimer: 0,
+      type: Math.random()<0.2?'big':'normal'
+    });
+  }
+  showMsg('🌊 Dalga '+state.wave+'! '+count+' zombi geliyor!');
+}
+
+let attackTimer = 0;
+function update(){
+  if(!gameRunning) return;
+
+  // Move player
+  let dx = 0, dy = 0;
+  if(joystick.active){ dx = joystick.dx; dy = joystick.dy; }
+  if(keys['ArrowLeft']||keys['a']) dx -= 1;
+  if(keys['ArrowRight']||keys['d']) dx += 1;
+  if(keys['ArrowUp']||keys['w']) dy -= 1;
+  if(keys['ArrowDown']||keys['s']) dy += 1;
+  const dl = Math.sqrt(dx*dx+dy*dy);
+  if(dl>0){ dx/=dl; dy/=dl; }
+  player.x = Math.max(20,Math.min(WORLD-20, player.x + dx*player.speed));
+  player.y = Math.max(20,Math.min(WORLD-20, player.y + dy*player.speed));
+
+  // Camera
+  cam.x = player.x; cam.y = player.y;
+
+  // Auto attack nearby zombies
+  if(state.attackMode || true){
+    attackTimer++;
+    if(attackTimer >= 20){
+      attackTimer = 0;
+      let nearest = null, nd = 120;
+      for(let z of zombies){
+        const d = dist(player.x,player.y,z.x,z.y);
+        if(d<nd){ nd=d; nearest=z; }
+      }
+      if(nearest){
+        bullets.push({x:player.x,y:player.y,tx:nearest.x,ty:nearest.y,
+          vx:0,vy:0,speed:8,dmg:15,owner:'player',life:60});
+        const a = Math.atan2(nearest.y-player.y,nearest.x-player.x);
+        bullets[bullets.length-1].vx = Math.cos(a)*8;
+        bullets[bullets.length-1].vy = Math.sin(a)*8;
+      }
+    }
+  }
+
+  // Update bullets
+  bullets = bullets.filter(b=>{
+    b.x += b.vx; b.y += b.vy; b.life--;
+    if(b.life<=0) return false;
+    if(b.owner==='player'){
+      for(let z of zombies){
+        if(dist(b.x,b.y,z.x,z.y)<16){ z.hp-=b.dmg; spawnParticles(z.x,z.y,'#ff4444',2); return false; }
+      }
+    } else {
+      if(dist(b.x,b.y,player.x,player.y)<16){ player.hp-=b.dmg; updateHUD(); return false; }
+    }
+    return true;
+  });
+
+  // Tower auto-attack
+  for(let bd of buildings){
+    if(bd.type!=='tower') continue;
+    bd.timer++;
+    if(bd.timer>=40){
+      bd.timer=0;
+      let nearest=null, nd=200;
+      for(let z of zombies){
+        const d=dist(bd.x,bd.y,z.x,z.y);
+        if(d<nd){nd=d;nearest=z;}
+      }
+      if(nearest){
+        const a=Math.atan2(nearest.y-bd.y,nearest.x-bd.x);
+        bullets.push({x:bd.x,y:bd.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,dmg:10,owner:'player',life:80});
+      }
+    }
+  }
+
+  // Update zombies
+  for(let z of zombies){
+    // Move toward player
+    const a = Math.atan2(player.y-z.y,player.x-z.x);
+    z.x += Math.cos(a)*z.speed;
+    z.y += Math.sin(a)*z.speed;
+    // Attack player
+    if(dist(z.x,z.y,player.x,player.y)<30){
+      z.attackTimer++;
+      if(z.attackTimer>=60){ z.attackTimer=0; player.hp-=5; updateHUD(); }
+    }
+    // Attack buildings
+    for(let bd of buildings){
+      if(dist(z.x,z.y,bd.x,bd.y)<30){
+        bd.hp -= 0.05;
+      }
+    }
+  }
+  // Remove dead zombies
+  zombies = zombies.filter(z=>{
+    if(z.hp<=0){
+      spawnParticles(z.x,z.y,'#228B22',5);
+      state.food+=1; state.wood+=1;
+      updateHUD(); return false;
+    }
+    return true;
+  });
+  // Remove dead buildings
+  buildings = buildings.filter(b=>b.hp>0);
+
+  // Update soldiers
+  for(let s of player.soldiers){
+    if(s.targetCity){
+      const a = Math.atan2(s.targetCity.y-s.y,s.targetCity.x-s.x);
+      s.x += Math.cos(a)*s.speed;
+      s.y += Math.sin(a)*s.speed;
+      if(dist(s.x,s.y,s.targetCity.x,s.targetCity.y)<s.targetCity.r){
+        s.attackTimer++;
+        if(s.attackTimer>=30){ s.attackTimer=0; s.targetCity.hp-=5; spawnParticles(s.targetCity.x,s.targetCity.y,'#ff4400',3); }
+      }
+    } else {
+      // Follow player
+      const d = dist(s.x,s.y,player.x,player.y);
+      if(d>60){
+        const a = Math.atan2(player.y-s.y,player.x-s.x);
+        s.x += Math.cos(a)*s.speed;
+        s.y += Math.sin(a)*s.speed;
+      }
+      // Attack nearby zombies
+      let nearest=null,nd=150;
+      for(let z of zombies){
+        const d=dist(s.x,s.y,z.x,z.y);
+        if(d<nd){nd=d;nearest=z;}
+      }
+      if(nearest){
+        s.attackTimer++;
+        if(s.attackTimer>=30){
+          s.attackTimer=0;
+          nearest.hp-=10;
+          spawnParticles(nearest.x,nearest.y,'#ff4444',2);
+        }
+      }
+    }
+  }
+
+  // Remove dead zombie cities
+  zombieCities = zombieCities.filter(c=>{
+    if(c.hp<=0){
+      player.soldiers.forEach(s=>{ if(s.targetCity===c) s.targetCity=null; });
+      spawnParticles(c.x,c.y,'#ff6600',15);
+      showMsg('Zombi şehri yok edildi! 🎉');
+      return false;
+    }
+    return true;
+  });
+
+  // Update particles
+  particles = particles.filter(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.vx*=0.9; p.vy*=0.9; p.life--;
+    return p.life>0;
+  });
+
+  // Wave spawning
+  state.waveTimer++;
+  if(state.waveTimer >= state.nextWaveCooldown){
+    state.waveTimer=0; state.wave++;
+    spawnWave();
+    document.getElementById('waveNum').textContent = state.wave;
+  }
+
+  // Player death
+  if(player.hp<=0){ gameOver(); }
+}
+
+function gameOver(){
+  gameRunning = false;
+  const s = document.getElementById('startScreen');
+  s.querySelector('h1').textContent = 'GAME OVER';
+  s.querySelector('p').textContent = 'Dalga '+state.wave+"'e kadar hayatta kaldın!";
+  s.querySelector('#startBtn').textContent = 'TEKRAR OYNA';
+  s.style.display='flex';
+}
+
+function drawWorld(){
+  ctx.save();
+  ctx.translate(W/2-cam.x, H/2-cam.y);
+
+  // Background - forest tiles
+  const startTileX = Math.floor((cam.x-W/2)/TILE)-1;
+  const endTileX = Math.ceil((cam.x+W/2)/TILE)+1;
+  const startTileY = Math.floor((cam.y-H/2)/TILE)-1;
+  const endTileY = Math.ceil((cam.y+H/2)/TILE)+1;
+
+  for(let tx=startTileX;tx<=endTileX;tx++){
+    for(let ty=startTileY;ty<=endTileY;ty++){
+      const c = ((tx+ty)%2===0)?'#1a3a0a':'#1f4010';
+      ctx.fillStyle=c;
+      ctx.fillRect(tx*TILE,ty*TILE,TILE,TILE);
+    }
+  }
+
+  // Zombie cities
+  for(let c of zombieCities){
+    const grad = ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,c.r);
+    grad.addColorStop(0,c.color);
+    grad.addColorStop(1,'rgba(0,0,0,0.8)');
+    ctx.fillStyle=grad;
+    ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#ff4444'; ctx.lineWidth=2;
+    ctx.stroke();
+    // HP bar
+    ctx.fillStyle='#333'; ctx.fillRect(c.x-50,c.y-c.r-15,100,8);
+    ctx.fillStyle='#ff4444'; ctx.fillRect(c.x-50,c.y-c.r-15,100*(c.hp/c.maxHp),8);
+    ctx.fillStyle='#fff'; ctx.font='bold 12px Exo 2'; ctx.textAlign='center';
+    ctx.fillText('☠ Zombi Şehri',c.x,c.y);
+  }
+
+  // Trees
+  for(let t of trees){
+    ctx.fillStyle='#2d5a1b';
+    ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#3d7a25';
+    ctx.beginPath(); ctx.arc(t.x-3,t.y-3,t.r*0.7,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#4a7c2f'; ctx.font='16px serif'; ctx.textAlign='center';
+    ctx.fillText('🌲',t.x,t.y+6);
+  }
+
+  // Stones
+  for(let s of stones){
+    ctx.fillStyle='#666';
+    ctx.beginPath(); ctx.ellipse(s.x,s.y,s.r,s.r*0.7,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#888';
+    ctx.beginPath(); ctx.ellipse(s.x-3,s.y-3,s.r*0.5,s.r*0.4,0,0,Math.PI*2); ctx.fill();
+  }
+
+  // Foods (bushes)
+  for(let f of foods){
+    ctx.fillStyle='#1a5c1a'; ctx.font='16px serif'; ctx.textAlign='center';
+    ctx.fillText('🍀',f.x,f.y+6);
+  }
+
+  // Buildings
+  for(let b of buildings){
+    if(b.type==='wall'){
+      ctx.fillStyle='#8B7355';
+      ctx.fillRect(b.x-20,b.y-20,40,40);
+      ctx.strokeStyle='#6B5335'; ctx.lineWidth=2; ctx.strokeRect(b.x-20,b.y-20,40,40);
+      // HP
+      ctx.fillStyle='#333'; ctx.fillRect(b.x-20,b.y-28,40,4);
+      ctx.fillStyle='#f0c040'; ctx.fillRect(b.x-20,b.y-28,40*(b.hp/b.maxHp),4);
+    } else if(b.type==='tower'){
+      ctx.fillStyle='#5a4a3a';
+      ctx.fillRect(b.x-18,b.y-30,36,44);
+      ctx.fillStyle='#7a6a5a';
+      ctx.fillRect(b.x-22,b.y-35,44,12);
+      ctx.fillStyle='#f0c040'; ctx.font='12px serif'; ctx.textAlign='center';
+      ctx.fillText('🗼',b.x,b.y+6);
+      ctx.fillStyle='#333'; ctx.fillRect(b.x-20,b.y-42,40,4);
+      ctx.fillStyle='#4caf50'; ctx.fillRect(b.x-20,b.y-42,40*(b.hp/b.maxHp),4);
+    } else if(b.type==='barracks'){
+      ctx.fillStyle='#3a5a3a';
+      ctx.fillRect(b.x-30,b.y-25,60,50);
+      ctx.fillStyle='#4a7a4a';
+      ctx.fillRect(b.x-28,b.y-23,56,46);
+      ctx.fillStyle='#fff'; ctx.font='12px serif'; ctx.textAlign='center';
+      ctx.fillText('🏕️',b.x,b.y+8);
+      ctx.fillStyle='#333'; ctx.fillRect(b.x-30,b.y-32,60,4);
+      ctx.fillStyle='#4caf50'; ctx.fillRect(b.x-30,b.y-32,60*(b.hp/b.maxHp),4);
+    }
+  }
+
+  // Zombies
+  for(let z of zombies){
+    const isBig = z.type==='big';
+    const r = isBig?20:14;
+    ctx.fillStyle=isBig?'#4a0':'#3a0';
+    ctx.beginPath(); ctx.arc(z.x,z.y,r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000'; ctx.font=(isBig?'20':'14')+'px serif'; ctx.textAlign='center';
+    ctx.fillText('🧟',z.x,z.y+5);
+    // HP
+    ctx.fillStyle='#300'; ctx.fillRect(z.x-r,z.y-r-8,r*2,4);
+    ctx.fillStyle='#e74c3c'; ctx.fillRect(z.x-r,z.y-r-8,r*2*(z.hp/z.maxHp),4);
+  }
+
+  // Soldiers
+  for(let s of player.soldiers){
+    ctx.fillStyle='#1a6b2a';
+    ctx.beginPath(); ctx.arc(s.x,s.y,10,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='12px serif'; ctx.textAlign='center';
+    ctx.fillText('⚔️',s.x,s.y+4);
+  }
+
+  // Player
+  ctx.save();
+  ctx.fillStyle='#2980b9';
+  ctx.beginPath(); ctx.arc(player.x,player.y,16,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#3498db';
+  ctx.beginPath(); ctx.arc(player.x,player.y,12,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='18px serif'; ctx.textAlign='center';
+  ctx.fillText('🧑',player.x,player.y+6);
+  ctx.restore();
+
+  // Bullets
+  for(let b of bullets){
+    ctx.fillStyle='#ffd700';
+    ctx.beginPath(); ctx.arc(b.x,b.y,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,215,0,0.4)';
+    ctx.beginPath(); ctx.arc(b.x,b.y,6,0,Math.PI*2); ctx.fill();
+  }
+
+  // Particles
+  for(let p of particles){
+    ctx.globalAlpha = p.life/30;
+    ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  ctx.restore();
+}
+
+function drawMinimap(){
+  miniCtx.fillStyle='#111';
+  miniCtx.fillRect(0,0,100,100);
+  const scale = 100/WORLD;
+
+  // Trees
+  miniCtx.fillStyle='#2d5a1b';
+  for(let t of trees){ miniCtx.fillRect(t.x*scale,t.y*scale,2,2); }
+
+  // Buildings
+  miniCtx.fillStyle='#f0c040';
+  for(let b of buildings){ miniCtx.fillRect(b.x*scale-2,b.y*scale-2,4,4); }
+
+  // Zombie cities
+  for(let c of zombieCities){
+    miniCtx.fillStyle=c.color;
+    miniCtx.beginPath(); miniCtx.arc(c.x*scale,c.y*scale,5,0,Math.PI*2); miniCtx.fill();
+  }
+
+  // Zombies
+  miniCtx.fillStyle='#e74c3c';
+  for(let z of zombies){ miniCtx.fillRect(z.x*scale,z.y*scale,2,2); }
+
+  // Player
+  miniCtx.fillStyle='#3498db';
+  miniCtx.beginPath(); miniCtx.arc(player.x*scale,player.y*scale,3,0,Math.PI*2); miniCtx.fill();
+
+  // View box
+  miniCtx.strokeStyle='rgba(255,255,255,0.4)';
+  miniCtx.lineWidth=1;
+  miniCtx.strokeRect((cam.x-W/2)*scale,(cam.y-H/2)*scale,W*scale,H*scale);
+}
+
+function updateHUD(){
+  document.getElementById('woodCount').textContent = state.wood;
+  document.getElementById('stoneCount').textContent = state.stone;
+  document.getElementById('foodCount').textContent = state.food;
+  document.getElementById('soldierCount').textContent = player.soldiers.length+'/'+player.maxSoldiers;
+  document.getElementById('healthFill').style.width = (player.hp/player.maxHp*100)+'%';
+}
+
+let msgTimer = null;
+function showMsg(text){
+  const el = document.getElementById('message');
+  el.textContent = text; el.style.opacity='1';
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(()=>el.style.opacity='0',2000);
+}
+
+function startGame(){
+  // Reset
+  player.x=WORLD/2; player.y=WORLD/2; player.hp=100; player.soldiers=[];
+  player.maxSoldiers=0;
+  state.wood=20; state.stone=10; state.food=10;
+  state.wave=1; state.waveTimer=0;
+  state.selectedBuild=null; state.attackMode=false;
+  buildings=[]; zombies=[]; bullets=[]; particles=[];
+  document.getElementById('waveNum').textContent='1';
+
+  initWorld();
+  spawnWave();
+  updateHUD();
+
+  document.getElementById('startScreen').style.display='none';
+  gameRunning=true;
+}
+
+let lastTime=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt = ts-lastTime; lastTime=ts;
+  if(!gameRunning){ return; }
+  update();
+  ctx.clearRect(0,0,W,H);
+  drawWorld();
+  drawMinimap();
+}
+
+window.addEventListener('resize',()=>{
+  W=canvas.width=window.innerWidth;
+  H=canvas.height=window.innerHeight;
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
